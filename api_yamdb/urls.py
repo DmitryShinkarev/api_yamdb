@@ -19,6 +19,7 @@ from django.views.generic import TemplateView
 
 from api_auth.urls import router as auth_router
 from api_users.urls import router as users_router
+from api_titles.urls import router as titles_router
 
 
 from api_yamdb import routers
@@ -26,6 +27,7 @@ from api_yamdb import routers
 api_v1_router = routers.DefaultRouter()
 api_v1_router.extend(auth_router)
 api_v1_router.extend(users_router)
+api_v1_router.extend(titles_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
