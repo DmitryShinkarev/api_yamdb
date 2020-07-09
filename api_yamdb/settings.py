@@ -37,13 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-<<<<<<< HEAD
-    'users',
-=======
     'api_auth',
     'api_users',
     'api_titles',
->>>>>>> 847397a3557b021f184ceb96f26404f63b95e6ec
+    'api_reviews',
     'rest_framework',
 ]
 
