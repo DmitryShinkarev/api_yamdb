@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from api_titles.models import Category, Genre, Title
+from api_titles.models import Category, Genre, Title, Review
+from api_users.serializers import UserSerializer
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -25,3 +26,11 @@ class TitleSerializer(serializers.ModelSerializer):
         fields = '__all__'
         model = Title
         extra_kwargs = {'rating': {'required': False}}
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.ReadOnlyField(source='author.username')
+
+    class Meta:
+        fields = ('id', 'text', 'score', 'author', 'pub_date')
+        model = Review
