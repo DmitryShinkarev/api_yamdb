@@ -7,7 +7,6 @@ from .managers import CustomUserManager
 class User(AbstractUser):
     email = models.EmailField(ugettext_lazy('email address'), unique=True)
     bio = models.TextField(blank=True)
-    #confirmation_code = models.CharField(max_length=6, default='123456')
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

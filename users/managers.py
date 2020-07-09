@@ -1,3 +1,4 @@
+'''
 from django.contrib.auth.base_user import BaseUserManager
 
 
@@ -16,3 +17,4 @@ class CustomUserManager(BaseUserManager):
         user.set_password(password)
         user.save()
         return user
+'''        
