@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
 
-class ApiTempConfig(AppConfig):
+class ApiTitlesConfig(AppConfig):
     name = 'api_titles'

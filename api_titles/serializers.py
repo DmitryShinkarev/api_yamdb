@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from api_titles.models import Category, Genre
+from api_titles.models import Category, Genre, Title
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -15,3 +15,13 @@ class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('name', 'slug',)
         model = Genre
+
+
+class TitleSerializer(serializers.ModelSerializer):
+    genre = GenreSerializer(read_only=True, many=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        fields = '__all__'
+        model = Title
+        extra_kwargs = {'rating': {'required': False}}
