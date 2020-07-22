@@ -9,9 +9,9 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from api_titles.filters import TitleFilter
-from api_titles.models import Category, Genre, Title, Review
+from api_titles.models import Category, Genre, Title, Review, Comment
 from api_titles.permissions import IsAdminOrReadOnly
-from api_titles.serializers import CategorySerializer, GenreSerializer, TitleSerializer, ReviewSerializer
+from api_titles.serializers import CategorySerializer, GenreSerializer, TitleSerializer, ReviewSerializer, CommentSerializer
 
 
 class CategoryViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
@@ -43,13 +43,17 @@ class TitleViewSet(ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
 
     def perform_create(self, serializer):
-        genre = Genre.objects.filter(slug__in=self.request.data.getlist('genre'))
-        category = get_object_or_404(Category, slug=self.request.data.get('category'))
+        genre = Genre.objects.filter(
+            slug__in=self.request.data.getlist('genre'))
+        category = get_object_or_404(
+            Category, slug=self.request.data.get('category'))
         serializer.save(genre=genre, category=category, rating=None)
 
     def perform_update(self, serializer):
-        genre = Genre.objects.filter(slug__in=self.request.data.getlist('genre'))
-        category = get_object_or_404(Category, slug=self.request.data.get('category'))
+        genre = Genre.objects.filter(
+            slug__in=self.request.data.getlist('genre'))
+        category = get_object_or_404(
+            Category, slug=self.request.data.get('category'))
         serializer.save(genre=genre, category=category)
 
 
@@ -69,14 +73,14 @@ class ReviewViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user, title=title)
         int_rating = Review.objects.filter(title=title).aggregate(Avg('score'))
         title.rating = int_rating['score__avg']
-        title.save(update_fields=["rating"])
+        title.save(update_fields=['rating'])
 
     def perform_update(self, serializer):
         serializer.save()
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
         int_rating = Review.objects.filter(title=title).aggregate(Avg('score'))
         title.rating = int_rating['score__avg']
-        title.save(update_fields=["rating"])
+        title.save(update_fields=['rating'])
 
     def partial_update(self, request, *args, **kwargs):
         review = get_object_or_404(Review, pk=self.kwargs.get('pk'))
@@ -88,5 +92,40 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         role = request.user.role
         if role != 'admin' and role != 'moderator':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, args, kwargs)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, )
+    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        review = get_object_or_404(Review, pk=self.kwargs.get('review_id'), title=title)
+        return review.review_comments.all()
+
+    def perform_create(self, serializer):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
+        serializer.save(author=self.request.user, title=title, review=review)
+
+    def perform_update(self, serializer):
+        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
+        if not comment.author == self.request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer.save()
+
+    def partial_update(self, request, *args, **kwargs):
+        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
+        role = request.user.role
+        if not comment.author == request.user and not role == 'admin' and not role == 'moderator':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, args, kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        role = request.user.role
+        if not role == 'admin' and not role == 'moderator':
             return Response(status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, args, kwargs)

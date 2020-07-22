@@ -27,18 +27,36 @@ class Title(models.Model):
     rating = models.IntegerField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     genre = models.ManyToManyField(Genre, related_name='genre', blank=True)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='category', blank=True, null=True)
+    category = models.ForeignKey(
+        Category, on_delete=models.PROTECT, related_name='category', blank=True, null=True)
 
     def __str__(self):
         return str(self.name)
 
 
 class Review(models.Model):
-    score = models.SmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(10)])
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author')
-    title = models.ForeignKey(Title, on_delete=models.CASCADE, related_name='reviews')
+    score = models.SmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(10)])
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='author')
+    title = models.ForeignKey(
+        Title, on_delete=models.CASCADE, related_name='reviews')
     pub_date = models.DateTimeField(auto_now=True)
     text = models.TextField(blank=False, null=False, max_length=200)
+
+    def __str__(self):
+        return str(self.text)
+
+
+class Comment(models.Model):
+    title = models.ForeignKey(
+        Title, on_delete=models.CASCADE, related_name='comments')
+    review = models.ForeignKey(
+        Review, on_delete=models.CASCADE, related_name='review_comments')
+    text = models.TextField(blank=False, null=False, max_length=200)
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='comment_author')
+    pub_date = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return str(self.text)

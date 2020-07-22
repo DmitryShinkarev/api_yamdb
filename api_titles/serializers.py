@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from api_titles.models import Category, Genre, Title, Review
+from api_titles.models import Category, Genre, Title, Review, Comment
 from api_users.serializers import UserSerializer
 
 
@@ -34,3 +34,11 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         fields = ('id', 'text', 'score', 'author', 'pub_date')
         model = Review
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.ReadOnlyField(source='author.username')
+
+    class Meta:
+        fields = ('id', 'text', 'author', 'pub_date')
+        model = Comment
