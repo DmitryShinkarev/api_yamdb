@@ -9,6 +9,8 @@ User = get_user_model()
 
 
 class AuthenticationSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    confirmation_code = serializers.CharField(required=True)
 
     class Meta:
         fields = ('email', 'confirmation_code')
@@ -25,8 +27,14 @@ class RegistrationSerializer(serializers.ModelSerializer):
         model = Auth
 
     def create(self, validated_data):
-        email = validated_data['email']
-        user = validated_data['user']
+        email = validated_data.get('email')
+        username = email.split('@')[0]
+        users = User.objects.filter(email=email, username=username)
+        if not users.exists():
+            user = User.objects.create(email=email, username=username)
+        else:
+            user = users[0]
+
         credentials = Auth(email=email, user=user)
         raw_confirmation_code = get_random_string()
         credentials.set_confirmation_code(raw_confirmation_code)

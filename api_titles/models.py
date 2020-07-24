@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Avg
 
 User = get_user_model()
 
@@ -29,6 +30,11 @@ class Title(models.Model):
     genre = models.ManyToManyField(Genre, related_name='genre', blank=True)
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, related_name='category', blank=True, null=True)
+
+    def update_ratings(self):
+        int_rating = Review.objects.filter(title=self).aggregate(Avg('score'))
+        self.rating = int_rating['score__avg']
+        self.save(update_fields=['rating'])
 
     def __str__(self):
         return str(self.name)

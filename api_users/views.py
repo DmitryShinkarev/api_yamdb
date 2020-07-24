@@ -17,22 +17,14 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ('=username',)
     lookup_field = 'username'
 
-    def create(self, request, *args, **kwargs):
+    def get_object(self):
         if self.kwargs.get('username') == 'me':
-            return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-        return super().create(request, args, kwargs)
+            return self.request.user
 
-    def retrieve(self, request, *args, **kwargs):
-        if self.kwargs.get('username') == 'me':
-            self.kwargs['username'] = request.user.username
-        return super().retrieve(request, args, kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-        if self.kwargs.get('username') == 'me':
-            self.kwargs['username'] = request.user.username
-        return super().partial_update(request, args, kwargs)
+        return super(UserViewSet, self).get_object()
 
     def destroy(self, request, *args, **kwargs):
         if self.kwargs.get('username') == 'me':
             return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
         return super().destroy(request, args, kwargs)

@@ -1,20 +1,26 @@
 from django.db.models import Avg
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, viewsets, filters, status
-from rest_framework.exceptions import ParseError
+from rest_framework import mixins, viewsets, filters
 from rest_framework.generics import get_object_or_404
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from api_titles.exceptions import ReviewExistsError
 from api_titles.filters import TitleFilter
-from api_titles.models import Category, Genre, Title, Review, Comment
-from api_titles.permissions import IsAdminOrReadOnly
-from api_titles.serializers import CategorySerializer, GenreSerializer, TitleSerializer, ReviewSerializer, CommentSerializer
+from api_titles.models import Category, Genre, Title, Review
+from api_titles.permissions import IsAdminOrReadOnly, IsModeratorOrAdmin, IsModeratorOrAdminOrAuthor, IsAuthor
+from api_titles.serializers import (
+    CategorySerializer, GenreSerializer, TitleSerializer, ReviewSerializer, CommentSerializer
+)
 
 
-class CategoryViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+class CategoryViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet
+):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     pagination_class = PageNumberPagination
@@ -50,17 +56,27 @@ class TitleViewSet(ModelViewSet):
         serializer.save(genre=genre, category=category, rating=None)
 
     def perform_update(self, serializer):
-        genre = Genre.objects.filter(
-            slug__in=self.request.data.getlist('genre'))
-        category = get_object_or_404(
-            Category, slug=self.request.data.get('category'))
-        serializer.save(genre=genre, category=category)
+        kwargs = {}
+        genre = self.request.data.getlist('genre')
+        category = self.request.data.get('category')
+        if genre:
+            kwargs['genre'] = Genre.objects.filter(slug__in=genre)
+        if category:
+            kwargs['category'] = get_object_or_404(Category, slug=self.request.data.get('category'))
+        serializer.save(**kwargs)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, )
     pagination_class = PageNumberPagination
+
+    def get_permissions(self):
+        if self.request.method == 'POST' or self.request.method == 'GET' or self.request.method == 'PUT':
+            return [IsAuthenticatedOrReadOnly()]
+        elif self.request.method == 'PATCH':
+            return [IsModeratorOrAdminOrAuthor()]
+        elif self.request.method == 'DELETE':
+            return [IsModeratorOrAdmin()]
 
     def get_queryset(self, *args, **kwargs):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
@@ -69,11 +85,10 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
         if Review.objects.filter(title=title, author=self.request.user).exists():
-            raise ParseError
+            raise ReviewExistsError
+
         serializer.save(author=self.request.user, title=title)
-        int_rating = Review.objects.filter(title=title).aggregate(Avg('score'))
-        title.rating = int_rating['score__avg']
-        title.save(update_fields=['rating'])
+        title.update_ratings()
 
     def perform_update(self, serializer):
         serializer.save()
@@ -82,24 +97,21 @@ class ReviewViewSet(viewsets.ModelViewSet):
         title.rating = int_rating['score__avg']
         title.save(update_fields=['rating'])
 
-    def partial_update(self, request, *args, **kwargs):
-        review = get_object_or_404(Review, pk=self.kwargs.get('pk'))
-        user = request.user
-        if review.author != user and user.role != 'admin' and user.role != 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, args, kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        role = request.user.role
-        if role != 'admin' and role != 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, args, kwargs)
-
 
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, )
     pagination_class = PageNumberPagination
+
+    def get_permissions(self):
+        if self.request.method == 'POST' or self.request.method == 'GET':
+            return [IsAuthenticatedOrReadOnly()]
+        elif self.request.method == 'PUT':
+            return [IsAuthor()]
+        elif self.request.method == 'PATCH':
+            return [IsModeratorOrAdminOrAuthor()]
+        elif self.request.method == 'DELETE':
+            return [IsModeratorOrAdmin()]
 
     def get_queryset(self):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
@@ -110,22 +122,3 @@ class CommentViewSet(viewsets.ModelViewSet):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
         serializer.save(author=self.request.user, title=title, review=review)
-
-    def perform_update(self, serializer):
-        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
-        if not comment.author == self.request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        serializer.save()
-
-    def partial_update(self, request, *args, **kwargs):
-        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
-        role = request.user.role
-        if not comment.author == request.user and not role == 'admin' and not role == 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, args, kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        role = request.user.role
-        if not role == 'admin' and not role == 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, args, kwargs)

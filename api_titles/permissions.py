@@ -1,16 +1,49 @@
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, SAFE_METHODS
+from rest_framework.permissions import BasePermission, SAFE_METHODS
+
+from api_users.models import UserRoles
 
 
-class IsAdminOrReadOnly(IsAuthenticated):
+class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):
-        return request.method in SAFE_METHODS or super().has_permission(request, view) and (
-                                                          IsAdminUser().has_permission(request, view)
-                                                          or request.user.role == 'admin')
+        if request.method in SAFE_METHODS:
+            return True
+
+        if request.user.is_authenticated:
+            return bool(
+                (request.user and request.user.is_staff) or
+                request.user.role == UserRoles.ADMIN
+            )
+
+        return False
 
 
-class IsModeraorOrAdminOrReadOnly(IsAuthenticated):
+class IsModeratorOrAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.method in SAFE_METHODS or super().has_permission(request, view) and (
-                                                          IsAdminUser().has_permission(request, view)
-                                                          or request.user.role == 'admin'
-                                                          or request.user.role == 'moderator')
+        if request.user.is_authenticated:
+            return bool(
+                (request.user and request.user.is_staff) or
+                request.user.role == UserRoles.ADMIN or
+                request.user.role == UserRoles.MODERATOR
+            )
+
+        return False
+
+
+class IsModeratorOrAdminOrAuthor(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.user == obj.author:
+            return True
+
+        if request.user.is_authenticated:
+            return bool(
+                (request.user and request.user.is_staff) or
+                request.user.role == UserRoles.ADMIN or
+                request.user.role == UserRoles.MODERATOR
+            )
+
+        return False
+
+
+class IsAuthor(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return bool(request.user == obj.author)
