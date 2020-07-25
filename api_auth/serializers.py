@@ -29,12 +29,10 @@ class RegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data.get('email')
         username = email.split('@')[0]
-        users = User.objects.filter(email=email, username=username)
-        if not users.exists():
+        try:
+            user = User.objects.get(email=email, username=username)
+        except User.DoesNotExist:
             user = User.objects.create(email=email, username=username)
-        else:
-            user = users[0]
-
         credentials = Auth(email=email, user=user)
         raw_confirmation_code = get_random_string()
         credentials.set_confirmation_code(raw_confirmation_code)

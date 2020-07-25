@@ -71,7 +71,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberPagination
 
     def get_permissions(self):
-        if self.request.method == 'POST' or self.request.method == 'GET' or self.request.method == 'PUT':
+        if self.request.method in ('POST', 'GET', 'PUT',):
             return [IsAuthenticatedOrReadOnly()]
         elif self.request.method == 'PATCH':
             return [IsModeratorOrAdminOrAuthor()]
@@ -93,9 +93,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save()
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
-        int_rating = Review.objects.filter(title=title).aggregate(Avg('score'))
-        title.rating = int_rating['score__avg']
-        title.save(update_fields=['rating'])
+        title.update_ratings()
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -104,7 +102,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberPagination
 
     def get_permissions(self):
-        if self.request.method == 'POST' or self.request.method == 'GET':
+        if self.request.method in ('POST', 'GET',):
             return [IsAuthenticatedOrReadOnly()]
         elif self.request.method == 'PUT':
             return [IsAuthor()]
